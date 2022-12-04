@@ -23,7 +23,8 @@
 """
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt.QtWidgets import QAction, QFileDialog
+from qgis.core import QgsProject
 
 # Initialize Qt resources from file resources.py
 from .resources import *
@@ -43,6 +44,7 @@ class Strassenachsen:
             application at run time.
         :type iface: QgsInterface
         """
+        
         # Save reference to the QGIS interface
         self.iface = iface
         # initialize plugin directory
@@ -66,6 +68,7 @@ class Strassenachsen:
         # Check if plugin was started the first time in current QGIS session
         # Must be set in initGui() to survive plugin reloads
         self.first_start = None
+        
 
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
@@ -178,7 +181,26 @@ class Strassenachsen:
                 self.tr(u'&Strassenachsen'),
                 action)
             self.iface.removeToolBarIcon(action)
-
+            
+    def select_input_file(self):
+   
+        filename = QFileDialog.getOpenFileName()
+        self.dlg.Quelle_lineEdit.setText(filename[0])
+        #if achsen is not None:
+            #QgsProject.instance().removeMapLayer(achsen)
+        achsen = self.iface.addVectorLayer(filename[0], "Achsen", "ogr")
+        
+        
+    def select_output_file(self):
+        filename_out = QFileDialog.getExistingDirectory()
+        self.dlg.Ziel_lineEdit.setText(filename_out)
+        
+    def fehler_Achsen(self):
+        print('test')
+        
+    def fehlende_Achsen(self):
+        print('test2')
+        
 
     def run(self):
         """Run method that performs all the real work"""
@@ -188,6 +210,11 @@ class Strassenachsen:
         if self.first_start == True:
             self.first_start = False
             self.dlg = StrassenachsenDialog()
+            self.dlg.Quelle_Button.clicked.connect(self.select_input_file)            
+            self.dlg.Ziel_Button.clicked.connect(self.select_output_file)
+            filename_out = self.dlg.Ziel_lineEdit.text()
+            self.dlg.fehler_Achsen.clicked.connect(self.fehler_Achsen)
+            self.dlg.fehlende_Achsen.clicked.connect(self.fehlende_Achsen)
 
         # show the dialog
         self.dlg.show()
@@ -195,6 +222,7 @@ class Strassenachsen:
         result = self.dlg.exec_()
         # See if OK was pressed
         if result:
+            
             # Do something useful here - delete the line containing pass and
             # substitute with your code.
             pass
