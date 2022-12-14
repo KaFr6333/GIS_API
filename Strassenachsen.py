@@ -24,7 +24,8 @@
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QFileDialog
-from qgis.core import QgsProject
+from qgis.core import QgsProject, QgsVectorLayer
+import urllib
 
 # Initialize Qt resources from file resources.py
 from .resources import *
@@ -68,6 +69,7 @@ class Strassenachsen:
         # Check if plugin was started the first time in current QGIS session
         # Must be set in initGui() to survive plugin reloads
         self.first_start = None
+        self.achsen =None
         
 
     # noinspection PyMethodMayBeStatic
@@ -185,20 +187,54 @@ class Strassenachsen:
     def select_input_file(self):
    
         filename = QFileDialog.getOpenFileName()
-        self.dlg.Quelle_lineEdit.setText(filename[0])
-        #if achsen is not None:
-            #QgsProject.instance().removeMapLayer(achsen)
-        achsen = self.iface.addVectorLayer(filename[0], "Achsen", "ogr")
+        self.dlg.Quelle_lineEdit.setText(filename[0])       
+        if self.achsen is not None:
+            QgsProject.instance().removeMapLayer(self.achsen)
+        self.achsen = self.iface.addVectorLayer(filename[0], "Achsen", "ogr")
+        
         
         
     def select_output_file(self):
+        #if self.achsen is not None:
+            #filename = QFileDialog.getOpenFileName()
         filename_out = QFileDialog.getExistingDirectory()
         self.dlg.Ziel_lineEdit.setText(filename_out)
         
     def fehler_Achsen(self):
-        print('test')
+        print(self.achsen)
+        #if self.achsen is not None:
+                
+    #prüfen ob die Achsendatei geladen ist, falls nicht Message ausgeben ('Bitte Achsendatei auswählen')
+    #BondingBox der Achsen erzeugen: 
+        #self.ausdehnung = processing.run('native:polygonfromlayerextent', { 'INPUT' : self.achsen, 'OUTPUT': 'memory:', 'ROUND_TO' : 0})
+    #GetFeature Straßenflurstücke
+        params = {
+            'service': 'WFS',
+            'version': '2.0.0',
+            'request': 'GetFeature',
+            'typename': 'ave:Nutzung',
+            'srsname': "EPSG:25832"
+            }
+        uri = 'https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht?' + urllib.parse.unquote(urllib.parse.urlencode(params))
+        uri2 = "https://www.pegelonline.wsv.de/webservices/gis/aktuell/wfs?version=2.0.0&Request=GetFeature&Typename=gk:waterlevels"
+        uri3 = "https://www.pegelonline.wsv.de/webservices/gis/aktuell/wfs?version=2.0.0&Request=GetFeature&Typename=gk:waterlevels&FILTER=<Filter><PropertyIsEqualTo><PropertyName>gk:water</PropertyName><Literal>WESER</Literal></PropertyIsEqualTo></Filter>"
+        #flurstuecke = self.iface.addVectorLayer(uri2, "Straßen", "WFS")
+        flurstuecke = QgsVectorLayer(uri, "Pegel", "WFS")
+        #flurstuecke = self.iface.addVectorLayer(uri3, "Straßen", "WFS")
+    #Straßenflurstücke mit gleichen Namen und gemeinsame Grenze vereinigen
+    #Verschneidung Straßenflurstücke und Achsen
+    #Ergebnis als temporäres Layer ins Projekt laden
+    
+        print(flurstuecke.featureCount())
         
     def fehlende_Achsen(self):
+        #if self.achsen is not None:
+    #prüfen ob die Achsendatei geladen ist, falls nicht Message ausgeben ('Bitte Achsendatei auswählen')
+    #BondingBox der Achsen erzeugen
+    #GetFeature Straßenflurstücke
+    #Straßenflurstücke mit gleichen Namen und gemeinsame Grenze vereinigen
+    #Verschneidung Straßenflurstücke und Achsen
+    #Ergebnis als temporäres Layer ins Projekt laden
         print('test2')
         
 
@@ -213,6 +249,8 @@ class Strassenachsen:
             self.dlg.Quelle_Button.clicked.connect(self.select_input_file)            
             self.dlg.Ziel_Button.clicked.connect(self.select_output_file)
             filename_out = self.dlg.Ziel_lineEdit.text()
+            if self.achsen is not None:
+                self.fehlende_Achsen.setdefault()
             self.dlg.fehler_Achsen.clicked.connect(self.fehler_Achsen)
             self.dlg.fehlende_Achsen.clicked.connect(self.fehlende_Achsen)
 
