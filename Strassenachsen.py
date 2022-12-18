@@ -27,6 +27,11 @@ from qgis.PyQt.QtWidgets import QAction, QFileDialog
 from qgis.core import QgsProject, QgsVectorLayer
 import urllib
 
+#from processing.core.Processing import Processing
+#Processing.initialize()
+from qgis import processing
+
+
 # Initialize Qt resources from file resources.py
 from .resources import *
 # Import the code for the dialog
@@ -206,7 +211,8 @@ class Strassenachsen:
                 
     #prüfen ob die Achsendatei geladen ist, falls nicht Message ausgeben ('Bitte Achsendatei auswählen')
     #BondingBox der Achsen erzeugen: 
-        #self.ausdehnung = processing.run('native:polygonfromlayerextent', { 'INPUT' : self.achsen, 'OUTPUT': 'memory:', 'ROUND_TO' : 0})
+        ausdehnung=processing.run('native:polygonfromlayerextent', { 'INPUT' : self.achsen, 'OUTPUT': 'memory:', 'ROUND_TO' : 0})['OUTPUT']
+        QgsProject.instance().addMapLayer(ausdehnung)
     #GetFeature Straßenflurstücke
         params = {
             'service': 'WFS',
@@ -216,16 +222,20 @@ class Strassenachsen:
             'srsname': "EPSG:25832"
             }
         uri = 'https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht?' + urllib.parse.unquote(urllib.parse.urlencode(params))
-        uri2 = "https://www.pegelonline.wsv.de/webservices/gis/aktuell/wfs?version=2.0.0&Request=GetFeature&Typename=gk:waterlevels"
-        uri3 = "https://www.pegelonline.wsv.de/webservices/gis/aktuell/wfs?version=2.0.0&Request=GetFeature&Typename=gk:waterlevels&FILTER=<Filter><PropertyIsEqualTo><PropertyName>gk:water</PropertyName><Literal>WESER</Literal></PropertyIsEqualTo></Filter>"
+        uri1 = 'D:/Studium/GIS_API/Plugin_Straßendb/InputDaten/Nutzung.shp'
         #flurstuecke = self.iface.addVectorLayer(uri2, "Straßen", "WFS")
-        flurstuecke = QgsVectorLayer(uri, "Pegel", "WFS")
-        #flurstuecke = self.iface.addVectorLayer(uri3, "Straßen", "WFS")
+        #flurstuecke = QgsVectorLayer(uri, "Straßen", "WFS")
+        flurstuecke = QgsVectorLayer(uri1, "Straßen", "ogr")
+        filter1=processing.run("native:extractbylocation",{'INPUT':flurstuecke,'PREDICATE':[0],'INTERSECT':ausdehnung,'OUTPUT':'memory:'})['OUTPUT']
+        expression = "nutzart = 'Straßenverkehr'"
+        filter2=processing.run("native:extractbyexpression",{'INPUT':filter1,'EXPRESSION':expression,'OUTPUT':'memory:'})['OUTPUT']
     #Straßenflurstücke mit gleichen Namen und gemeinsame Grenze vereinigen
+        strassen = processing.run('native:dissolve',{'INPUT': filter2, 'FIELD': 'name', 'OUTPUT': 'memory:'})['OUTPUT']
+        print(strassen.featureCount())
     #Verschneidung Straßenflurstücke und Achsen
+        
     #Ergebnis als temporäres Layer ins Projekt laden
     
-        print(flurstuecke.featureCount())
         
     def fehlende_Achsen(self):
         #if self.achsen is not None:
