@@ -75,6 +75,7 @@ class Strassenachsen:
         # Must be set in initGui() to survive plugin reloads
         self.first_start = None
         self.achsen =None
+        self.strassen=None
         
 
     # noinspection PyMethodMayBeStatic
@@ -197,6 +198,10 @@ class Strassenachsen:
             QgsProject.instance().removeMapLayer(self.achsen)
         self.achsen = self.iface.addVectorLayer(filename[0], "Achsen", "ogr")
         
+        #Button dissabled
+        self.dlg.fehler_Achsen.setEnabled(True)
+        self.dlg.fehlende_Achsen.setEnabled(True)
+        
         
         
     def select_output_file(self):
@@ -205,15 +210,13 @@ class Strassenachsen:
         filename_out = QFileDialog.getExistingDirectory()
         self.dlg.Ziel_lineEdit.setText(filename_out)
         
-    def fehler_Achsen(self):
-        print(self.achsen)
-        #if self.achsen is not None:
-                
-    #prüfen ob die Achsendatei geladen ist, falls nicht Message ausgeben ('Bitte Achsendatei auswählen')
-    #BondingBox der Achsen erzeugen: 
+    def roadsSurfaces(self):
+        
+        #BondingBox der Achsen erzeugen: 
         ausdehnung=processing.run('native:polygonfromlayerextent', { 'INPUT' : self.achsen, 'OUTPUT': 'memory:', 'ROUND_TO' : 0})['OUTPUT']
-        QgsProject.instance().addMapLayer(ausdehnung)
-    #GetFeature Straßenflurstücke
+        
+    
+        #GetFeature Straßenflurstücke
         params = {
             'service': 'WFS',
             'version': '2.0.0',
@@ -227,19 +230,28 @@ class Strassenachsen:
         #flurstuecke = QgsVectorLayer(uri, "Straßen", "WFS")
         flurstuecke = QgsVectorLayer(uri1, "Straßen", "ogr")
         filter1=processing.run("native:extractbylocation",{'INPUT':flurstuecke,'PREDICATE':[0],'INTERSECT':ausdehnung,'OUTPUT':'memory:'})['OUTPUT']
-        expression = "nutzart = 'Straßenverkehr'"
+        expression = "nutzart = 'Weg' OR nutzart = 'Straßenverkehr'"
         filter2=processing.run("native:extractbyexpression",{'INPUT':filter1,'EXPRESSION':expression,'OUTPUT':'memory:'})['OUTPUT']
-    #Straßenflurstücke mit gleichen Namen und gemeinsame Grenze vereinigen
-        strassen = processing.run('native:dissolve',{'INPUT': filter2, 'FIELD': 'name', 'OUTPUT': 'memory:'})['OUTPUT']
-        print(strassen.featureCount())
+        #Straßenflurstücke mit gleichen Namen und gemeinsame Grenze vereinigen
+        self.strassen = processing.run('native:dissolve',{'INPUT': filter2, 'FIELD': 'name', 'OUTPUT': 'memory:'})['OUTPUT']
+        #print(strassen.featureCount())
+        QgsProject.instance().addMapLayer(self.strassen)
+        
+        
+    def fehler_Achsen(self):
+        if self.strassen==None:
+            self.roadsSurfaces()
+        
     #Verschneidung Straßenflurstücke und Achsen
+        diff = processing.run('native:difference', {'INPUT': self.achsen, 'OVERLAY': self.strassen,'OUTPUT': 'memory:'})['OUTPUT']
+        print(diff.featureCount())
+        QgsProject.instance().addMapLayer(diff)
         
     #Ergebnis als temporäres Layer ins Projekt laden
     
         
     def fehlende_Achsen(self):
-        #if self.achsen is not None:
-    #prüfen ob die Achsendatei geladen ist, falls nicht Message ausgeben ('Bitte Achsendatei auswählen')
+        
     #BondingBox der Achsen erzeugen
     #GetFeature Straßenflurstücke
     #Straßenflurstücke mit gleichen Namen und gemeinsame Grenze vereinigen
@@ -256,11 +268,11 @@ class Strassenachsen:
         if self.first_start == True:
             self.first_start = False
             self.dlg = StrassenachsenDialog()
+            self.dlg.fehler_Achsen.setEnabled(False)
+            self.dlg.fehlende_Achsen.setEnabled(False)
             self.dlg.Quelle_Button.clicked.connect(self.select_input_file)            
             self.dlg.Ziel_Button.clicked.connect(self.select_output_file)
             filename_out = self.dlg.Ziel_lineEdit.text()
-            if self.achsen is not None:
-                self.fehlende_Achsen.setdefault()
             self.dlg.fehler_Achsen.clicked.connect(self.fehler_Achsen)
             self.dlg.fehlende_Achsen.clicked.connect(self.fehlende_Achsen)
 
