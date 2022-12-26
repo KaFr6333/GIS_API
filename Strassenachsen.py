@@ -76,7 +76,8 @@ class Strassenachsen:
         self.first_start = None
         self.achsen =None
         self.strassen=None
-        
+        self.diff=None
+        self.non_matching=None
 
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
@@ -210,6 +211,9 @@ class Strassenachsen:
         filename_out = QFileDialog.getExistingDirectory()
         self.dlg.Ziel_lineEdit.setText(filename_out)
         
+        #Button dissabled
+        self.dlg.pushButton.setEnabled(True)
+        
     def roadsSurfaces(self):
         
         #BondingBox der Achsen erzeugen: 
@@ -243,21 +247,31 @@ class Strassenachsen:
             self.roadsSurfaces()
         
     #Verschneidung Straßenflurstücke und Achsen
-        diff = processing.run('native:difference', {'INPUT': self.achsen, 'OVERLAY': self.strassen,'OUTPUT': 'memory:'})['OUTPUT']
-        print(diff.featureCount())
-        QgsProject.instance().addMapLayer(diff)
-        
+        self.diff = processing.run('native:difference', {'INPUT': self.achsen, 'OVERLAY': self.strassen,'OUTPUT': 'memory:'})['OUTPUT']
+           
     #Ergebnis als temporäres Layer ins Projekt laden
+        QgsProject.instance().addMapLayer(self.diff)
     
         
     def fehlende_Achsen(self):
-        
-    #BondingBox der Achsen erzeugen
-    #GetFeature Straßenflurstücke
-    #Straßenflurstücke mit gleichen Namen und gemeinsame Grenze vereinigen
+    
+        if self.strassen==None:
+            self.roadsSurfaces()
+    # Straßenflurtücke teilen an den Anfans- und Endpunkten der Achsen
+            
     #Verschneidung Straßenflurstücke und Achsen
+        joinbyloc = processing.run('native:joinattributesbylocation',{ 'DISCARD_NONMATCHING' : False, 'INPUT' : self.strassen, 'JOIN' : self.achsen, 'JOIN_FIELDS' : [], 'METHOD' : 1, 'OUTPUT' : 'TEMPORARY_OUTPUT', 'PREDICATE' : [0], 'PREFIX' : '' })['OUTPUT']
+        expression = "full_id is Null"
+        self.non_matching = processing.run("native:extractbyexpression",{'INPUT':joinbyloc,'EXPRESSION':expression,'OUTPUT':'memory:'})['OUTPUT']
+   
     #Ergebnis als temporäres Layer ins Projekt laden
-        print('test2')
+        QgsProject.instance().addMapLayer(self.non_matching)
+        
+    def save (self)
+        if self.diff not None:
+            self.diff.
+        
+        
         
 
     def run(self):
@@ -270,12 +284,13 @@ class Strassenachsen:
             self.dlg = StrassenachsenDialog()
             self.dlg.fehler_Achsen.setEnabled(False)
             self.dlg.fehlende_Achsen.setEnabled(False)
+            self.dlg.pushButton.setEnabled(False)
             self.dlg.Quelle_Button.clicked.connect(self.select_input_file)            
             self.dlg.Ziel_Button.clicked.connect(self.select_output_file)
             filename_out = self.dlg.Ziel_lineEdit.text()
             self.dlg.fehler_Achsen.clicked.connect(self.fehler_Achsen)
             self.dlg.fehlende_Achsen.clicked.connect(self.fehlende_Achsen)
-
+            self.dlg.pushButton.clicked.connect(self.save)
         # show the dialog
         self.dlg.show()
         # Run the dialog event loop
