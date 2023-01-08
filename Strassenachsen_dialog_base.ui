@@ -6,35 +6,22 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>354</width>
-    <height>300</height>
+    <width>391</width>
+    <height>255</height>
    </rect>
+  </property>
+  <property name="focusPolicy">
+   <enum>Qt::StrongFocus</enum>
   </property>
   <property name="windowTitle">
    <string>Strassenachsen</string>
   </property>
-  <widget class="QDialogButtonBox" name="dialogButtonBox">
-   <property name="geometry">
-    <rect>
-     <x>90</x>
-     <y>240</y>
-     <width>201</width>
-     <height>32</height>
-    </rect>
-   </property>
-   <property name="orientation">
-    <enum>Qt::Horizontal</enum>
-   </property>
-   <property name="standardButtons">
-    <set>QDialogButtonBox::Close|QDialogButtonBox::Save</set>
-   </property>
-  </widget>
   <widget class="QLineEdit" name="Quelle_lineEdit">
    <property name="geometry">
     <rect>
      <x>10</x>
      <y>30</y>
-     <width>281</width>
+     <width>291</width>
      <height>22</height>
     </rect>
    </property>
@@ -62,7 +49,7 @@
     </rect>
    </property>
    <property name="text">
-    <string>Finden 
+    <string>Finde 
 fehlerhafte Achsen</string>
    </property>
   </widget>
@@ -79,7 +66,7 @@ fehlerhafte Achsen</string>
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Finden
+    <string>Finde
 fehlende Achsen </string>
    </property>
   </widget>
@@ -88,7 +75,7 @@ fehlende Achsen </string>
     <rect>
      <x>10</x>
      <y>110</y>
-     <width>281</width>
+     <width>291</width>
      <height>22</height>
     </rect>
    </property>
@@ -109,7 +96,7 @@ fehlende Achsen </string>
   <widget class="QToolButton" name="Ziel_Button">
    <property name="geometry">
     <rect>
-     <x>310</x>
+     <x>330</x>
      <y>110</y>
      <width>31</width>
      <height>22</height>
@@ -122,7 +109,7 @@ fehlende Achsen </string>
   <widget class="QToolButton" name="Quelle_Button">
    <property name="geometry">
     <rect>
-     <x>310</x>
+     <x>330</x>
      <y>30</y>
      <width>31</width>
      <height>22</height>
@@ -132,53 +119,23 @@ fehlende Achsen </string>
     <string>...</string>
    </property>
   </widget>
-  <widget class="QPushButton" name="pushButton">
+  <widget class="QDialogButtonBox" name="button_box">
    <property name="geometry">
     <rect>
-     <x>20</x>
-     <y>220</y>
-     <width>93</width>
-     <height>28</height>
+     <x>300</x>
+     <y>180</y>
+     <width>81</width>
+     <height>61</height>
     </rect>
    </property>
-   <property name="text">
-    <string>PushButton</string>
+   <property name="orientation">
+    <enum>Qt::Vertical</enum>
+   </property>
+   <property name="standardButtons">
+    <set>QDialogButtonBox::Close|QDialogButtonBox::Save</set>
    </property>
   </widget>
  </widget>
  <resources/>
- <connections>
-  <connection>
-   <sender>dialogButtonBox</sender>
-   <signal>accepted()</signal>
-   <receiver>StrassenachsenDialogBase</receiver>
-   <slot>accept()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>20</x>
-     <y>20</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>20</x>
-     <y>20</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>dialogButtonBox</sender>
-   <signal>rejected()</signal>
-   <receiver>StrassenachsenDialogBase</receiver>
-   <slot>reject()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>20</x>
-     <y>20</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>20</x>
-     <y>20</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
+ <connections/>
 </ui>

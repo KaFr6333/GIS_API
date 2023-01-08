@@ -23,12 +23,10 @@
 """
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction, QFileDialog
-from qgis.core import QgsProject, QgsVectorLayer
+from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox
+from qgis.core import QgsProject, QgsVectorLayer, QgsVectorFileWriter
 import urllib
 
-#from processing.core.Processing import Processing
-#Processing.initialize()
 from qgis import processing
 
 
@@ -74,10 +72,14 @@ class Strassenachsen:
         # Check if plugin was started the first time in current QGIS session
         # Must be set in initGui() to survive plugin reloads
         self.first_start = None
+        self.filename_out = None
         self.achsen =None
         self.strassen=None
         self.diff=None
         self.non_matching=None
+        self.message = None
+
+        
 
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
@@ -175,7 +177,7 @@ class Strassenachsen:
         icon_path = ':/plugins/Strassenachsen/icon.png'
         self.add_action(
             icon_path,
-            text=self.tr(u''),
+            text=self.tr(u'Straßennetz prüfen'),
             callback=self.run,
             parent=self.iface.mainWindow())
 
@@ -191,6 +193,11 @@ class Strassenachsen:
                 action)
             self.iface.removeToolBarIcon(action)
             
+    def msg(self):
+        msgBox = QMessageBox()
+        msgBox.setText(self.message)
+        msgBox.exec()
+            
     def select_input_file(self):
    
         filename = QFileDialog.getOpenFileName()
@@ -199,20 +206,36 @@ class Strassenachsen:
             QgsProject.instance().removeMapLayer(self.achsen)
         self.achsen = self.iface.addVectorLayer(filename[0], "Achsen", "ogr")
         
-        #Button dissabled
-        self.dlg.fehler_Achsen.setEnabled(True)
-        self.dlg.fehlende_Achsen.setEnabled(True)
+        self.achsen.loadNamedStyle(self.plugin_dir + '/Styles/Style_Achsen.qml')
+        self.achsen.triggerRepaint()
+        
+        #MessageBox 
+        if not self.achsen or not self.achsen.isValid():
+            self.message = 'Bitte Datei wählen'
+            self.msg()            
+            self.achsen = None
+        else:
+            #Button dissabled
+            self.dlg.fehler_Achsen.setEnabled(True)
+            self.dlg.fehlende_Achsen.setEnabled(True)
+            self.dlg.Ziel_Button.setEnabled(True)
         
         
         
     def select_output_file(self):
         #if self.achsen is not None:
             #filename = QFileDialog.getOpenFileName()
-        filename_out = QFileDialog.getExistingDirectory()
-        self.dlg.Ziel_lineEdit.setText(filename_out)
+        self.filename_out = QFileDialog.getExistingDirectory()
+        self.dlg.Ziel_lineEdit.setText(self.filename_out)
+        
+        #MessageBox 
+        if not self.filename_out:
+            self.message = 'Bitte Speicherort festlegen'
+            self.msg()            
+            self.filename_out = None
         
         #Button dissabled
-        self.dlg.pushButton.setEnabled(True)
+        
         
     def roadsSurfaces(self):
         
@@ -220,7 +243,7 @@ class Strassenachsen:
         ausdehnung=processing.run('native:polygonfromlayerextent', { 'INPUT' : self.achsen, 'OUTPUT': 'memory:', 'ROUND_TO' : 0})['OUTPUT']
         
     
-        #GetFeature Straßenflurstücke
+        #GetFeature Straßenflurstuecke
         params = {
             'service': 'WFS',
             'version': '2.0.0',
@@ -228,18 +251,16 @@ class Strassenachsen:
             'typename': 'ave:Nutzung',
             'srsname': "EPSG:25832"
             }
-        uri = 'https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht?' + urllib.parse.unquote(urllib.parse.urlencode(params))
-        uri1 = 'D:/Studium/GIS_API/Plugin_Straßendb/InputDaten/Nutzung.shp'
-        #flurstuecke = self.iface.addVectorLayer(uri2, "Straßen", "WFS")
-        #flurstuecke = QgsVectorLayer(uri, "Straßen", "WFS")
-        flurstuecke = QgsVectorLayer(uri1, "Straßen", "ogr")
+        #uri = 'https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht?' + urllib.parse.unquote(urllib.parse.urlencode(params))
+        uri="pagingEnabled='true' preferCoordinatesForWfsT11='false' restrictToRequestBBOX='1' srsname='EPSG:25832' typename='ave:Nutzung' url='https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht' version='auto'"
+        flurstuecke = QgsVectorLayer(uri, "Straßen", "WFS")
+        
+        #Furstuecke filtern nach der Nutzungsart: Weg und Straßenverkehr
         filter1=processing.run("native:extractbylocation",{'INPUT':flurstuecke,'PREDICATE':[0],'INTERSECT':ausdehnung,'OUTPUT':'memory:'})['OUTPUT']
         expression = "nutzart = 'Weg' OR nutzart = 'Straßenverkehr'"
         filter2=processing.run("native:extractbyexpression",{'INPUT':filter1,'EXPRESSION':expression,'OUTPUT':'memory:'})['OUTPUT']
         #Straßenflurstücke mit gleichen Namen und gemeinsame Grenze vereinigen
         self.strassen = processing.run('native:dissolve',{'INPUT': filter2, 'FIELD': 'name', 'OUTPUT': 'memory:'})['OUTPUT']
-        #print(strassen.featureCount())
-        QgsProject.instance().addMapLayer(self.strassen)
         
         
     def fehler_Achsen(self):
@@ -247,10 +268,14 @@ class Strassenachsen:
             self.roadsSurfaces()
         
     #Verschneidung Straßenflurstücke und Achsen
-        self.diff = processing.run('native:difference', {'INPUT': self.achsen, 'OVERLAY': self.strassen,'OUTPUT': 'memory:'})['OUTPUT']
+        self.diff = processing.run('native:difference', {'INPUT': self.achsen, 'OVERLAY': self.strassen,'OUTPUT': 'memory: temporäres Layer falsche Achsen'})['OUTPUT']
            
     #Ergebnis als temporäres Layer ins Projekt laden
         QgsProject.instance().addMapLayer(self.diff)
+        
+    #Layer-Style
+        self.diff.loadNamedStyle(self.plugin_dir + '/Styles/Style_Linie.qml')
+        self.diff.triggerRepaint()
     
         
     def fehlende_Achsen(self):
@@ -262,14 +287,37 @@ class Strassenachsen:
     #Verschneidung Straßenflurstücke und Achsen
         joinbyloc = processing.run('native:joinattributesbylocation',{ 'DISCARD_NONMATCHING' : False, 'INPUT' : self.strassen, 'JOIN' : self.achsen, 'JOIN_FIELDS' : [], 'METHOD' : 1, 'OUTPUT' : 'TEMPORARY_OUTPUT', 'PREDICATE' : [0], 'PREFIX' : '' })['OUTPUT']
         expression = "full_id is Null"
-        self.non_matching = processing.run("native:extractbyexpression",{'INPUT':joinbyloc,'EXPRESSION':expression,'OUTPUT':'memory:'})['OUTPUT']
+        self.non_matching = processing.run("native:extractbyexpression",{'INPUT':joinbyloc,'EXPRESSION':expression,'OUTPUT':'memory: temporäres Layer fehlende Achsen'})['OUTPUT']
    
     #Ergebnis als temporäres Layer ins Projekt laden
         QgsProject.instance().addMapLayer(self.non_matching)
         
-    def save (self)
-        if self.diff not None:
-            self.diff.
+    #Layer-Style
+        self.non_matching.loadNamedStyle(self.plugin_dir + '/Styles/Style_FL.qml')
+        self.non_matching.triggerRepaint()
+        
+    def save(self):
+        if not self.filename_out:
+            self.message = 'Bitte Speicherort festlegen'
+            self.msg()
+            self.filename_out = None
+        else:
+            if self.diff is None and self.non_matching is None:
+                self.message = 'Bitte eine der Aktionen ausführen'
+                self.msg()
+            if self.diff is not None:
+                QgsVectorFileWriter.writeAsVectorFormat(self.diff, self.filename_out + "/falsche_Achsen.json", "utf-8", self.diff.sourceCrs(), 'GeoJson', 0)
+                QgsProject.instance().removeMapLayer(self.diff)
+                self.diff = None
+                uri = self.filename_out + "/falsche_Achsen.json"
+                self.iface.addVectorLayer(uri, '', 'ogr')
+            
+            if self.non_matching is not None:
+                QgsVectorFileWriter.writeAsVectorFormat(self.non_matching, self.filename_out + "/fehlende_Achsen.json", "utf-8", self.non_matching.sourceCrs(), 'GeoJson', 0)
+                QgsProject.instance().removeMapLayer(self.non_matching)
+                self.non_matching = None
+                uri = self.filename_out + "/fehlende_Achsen.json"
+                self.iface.addVectorLayer(uri, '', 'ogr')
         
         
         
@@ -280,24 +328,18 @@ class Strassenachsen:
         # Create the dialog with elements (after translation) and keep reference
         # Only create GUI ONCE in callback, so that it will only load when the plugin is started
         if self.first_start == True:
-            self.first_start = False
+            self.first_start = False           
             self.dlg = StrassenachsenDialog()
             self.dlg.fehler_Achsen.setEnabled(False)
             self.dlg.fehlende_Achsen.setEnabled(False)
-            self.dlg.pushButton.setEnabled(False)
+            self.dlg.Ziel_Button.setEnabled(False)
             self.dlg.Quelle_Button.clicked.connect(self.select_input_file)            
             self.dlg.Ziel_Button.clicked.connect(self.select_output_file)
             filename_out = self.dlg.Ziel_lineEdit.text()
             self.dlg.fehler_Achsen.clicked.connect(self.fehler_Achsen)
             self.dlg.fehlende_Achsen.clicked.connect(self.fehlende_Achsen)
-            self.dlg.pushButton.clicked.connect(self.save)
+            self.dlg.button_box.accepted.connect(self.save)
+            self.dlg.button_box.rejected.connect(self.dlg.reject)
         # show the dialog
         self.dlg.show()
-        # Run the dialog event loop
-        result = self.dlg.exec_()
-        # See if OK was pressed
-        if result:
-            
-            # Do something useful here - delete the line containing pass and
-            # substitute with your code.
-            pass
+        
