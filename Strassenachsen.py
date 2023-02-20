@@ -201,27 +201,33 @@ class Strassenachsen:
     def select_input_file(self):
    
         filename = QFileDialog.getOpenFileName()
-        self.dlg.Quelle_lineEdit.setText(filename[0])       
+        self.dlg.Quelle_lineEdit.setText(filename[0])
         if self.achsen is not None:
             QgsProject.instance().removeMapLayer(self.achsen)
-        self.achsen = self.iface.addVectorLayer(filename[0], "Achsen", "ogr")
-        
-        self.achsen.loadNamedStyle(self.plugin_dir + '/Styles/Style_Achsen.qml')
-        self.achsen.triggerRepaint()
-        
-        #MessageBox 
-        if not self.achsen or not self.achsen.isValid():
+        if filename[0]=='':
+            #MessageBox if filename is not 
             self.message = 'Bitte Datei wählen'
-            self.msg()            
-            self.achsen = None
-        else:
-            #Button dissabled
-            self.dlg.fehler_Achsen.setEnabled(True)
-            self.dlg.fehlende_Achsen.setEnabled(True)
-            self.dlg.Ziel_Button.setEnabled(True)
+            self.msg()
+        else:  
+            if not QgsVectorLayer(filename[0], "Achsen", "ogr").isValid():
+                #MessageBox if Layer is not Vectorlayer
+                self.message = 'Bitte Vektor Datei wählen'
+                self.msg()            
+                self.achsen = None
+                self.first_start = True
+                self.run()
+                    
+            else:
+                #Achsen laden
+                self.achsen = self.iface.addVectorLayer(filename[0], "Achsen", "ogr")
+                self.achsen.loadNamedStyle(self.plugin_dir + '/Styles/Style_Achsen.qml')
+                self.achsen.triggerRepaint()
+                #Button dissabled
+                self.dlg.fehler_Achsen.setEnabled(True)
+                self.dlg.fehlende_Achsen.setEnabled(True)
+                self.dlg.Ziel_Button.setEnabled(True)
         
-        
-        
+             
     def select_output_file(self):
         #if self.achsen is not None:
             #filename = QFileDialog.getOpenFileName()
@@ -252,7 +258,7 @@ class Strassenachsen:
             'srsname': "EPSG:25832"
             }
         #uri = 'https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht?' + urllib.parse.unquote(urllib.parse.urlencode(params))
-        uri="pagingEnabled='true' preferCoordinatesForWfsT11='false' restrictToRequestBBOX='1' srsname='EPSG:25832' typename='ave:Nutzung' url='https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht' version='auto'"
+        uri="pagingEnabled='true' preferCoordinatesForWfsT11='false' restrictToRequestBBOX='ausdehnung' srsname='EPSG:25832' typename='ave:Nutzung' url='https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht' version='auto'"
         flurstuecke = QgsVectorLayer(uri, "Straßen", "WFS")
         
         #Furstuecke filtern nach der Nutzungsart: Weg und Straßenverkehr
