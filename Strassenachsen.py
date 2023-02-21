@@ -247,18 +247,8 @@ class Strassenachsen:
         
         #BondingBox der Achsen erzeugen: 
         ausdehnung=processing.run('native:polygonfromlayerextent', { 'INPUT' : self.achsen, 'OUTPUT': 'memory:', 'ROUND_TO' : 0})['OUTPUT']
-        
-    
-        #GetFeature Straßenflurstuecke
-        params = {
-            'service': 'WFS',
-            'version': '2.0.0',
-            'request': 'GetFeature',
-            'typename': 'ave:Nutzung',
-            'srsname': "EPSG:25832"
-            }
-        #uri = 'https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht?' + urllib.parse.unquote(urllib.parse.urlencode(params))
-        uri="pagingEnabled='true' preferCoordinatesForWfsT11='false' restrictToRequestBBOX='ausdehnung' srsname='EPSG:25832' typename='ave:Nutzung' url='https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht' version='auto'"
+       
+        uri="pagingEnabled='true' preferCoordinatesForWfsT11='false' restrictToRequestBBOX='1' srsname='EPSG:25832' typename='ave:Nutzung' url='https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht' version='auto'"
         flurstuecke = QgsVectorLayer(uri, "Straßen", "WFS")
         
         #Furstuecke filtern nach der Nutzungsart: Weg und Straßenverkehr
@@ -288,8 +278,7 @@ class Strassenachsen:
     
         if self.strassen==None:
             self.roadsSurfaces()
-    # Straßenflurtücke teilen an den Anfans- und Endpunkten der Achsen
-            
+                
     #Verschneidung Straßenflurstücke und Achsen
         joinbyloc = processing.run('native:joinattributesbylocation',{ 'DISCARD_NONMATCHING' : False, 'INPUT' : self.strassen, 'JOIN' : self.achsen, 'JOIN_FIELDS' : [], 'METHOD' : 1, 'OUTPUT' : 'TEMPORARY_OUTPUT', 'PREDICATE' : [0], 'PREFIX' : '' })['OUTPUT']
         expression = "full_id is Null"
